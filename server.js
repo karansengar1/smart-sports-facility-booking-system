@@ -118,9 +118,12 @@ app.post("/register", async (req, res) => {
   }
 });
 
+
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    console.log("Entered password:", password);
 
     // Check if user exists
     const user = await pool.query(
@@ -132,11 +135,15 @@ app.post("/login", async (req, res) => {
       return res.json({ message: "User not found" });
     }
 
+    console.log("Stored hash:", user.rows[0].password_hash);
+
     // Compare password
     const validPassword = await bcrypt.compare(
       password,
       user.rows[0].password_hash
     );
+
+    console.log("Password match:", validPassword);
 
     if (!validPassword) {
       return res.json({ message: "Invalid password" });
@@ -150,9 +157,29 @@ app.post("/login", async (req, res) => {
 
     res.json({
       message: "Login successful",
-      token: token
+      token: token,
+      role: user.rows[0].role
     });
 
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+app.put("/reset-password", async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    console.log("NEW HASH:", hashedPassword); // 👈 important
+
+    await pool.query(
+      "UPDATE users SET password_hash = $1 WHERE email = $2",
+      [hashedPassword, email]
+    );
+
+    res.json({ message: "Password reset successful" });
   } catch (err) {
     console.error(err.message);
   }
